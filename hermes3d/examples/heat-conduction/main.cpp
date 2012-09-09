@@ -3,6 +3,7 @@
 #define HERMES_REPORT_VERBOSE
 #include "config.h"
 #include <hermes3d.h>
+#include <iostream>
 
 //  This example shows how to solve a time-dependent PDE discretized
 //  in time via the implicit Euler method on a fixed mesh. 
@@ -22,7 +23,9 @@
 //
 //  The following parameters can be changed:
 
-const int INIT_REF_NUM = 2;			                  // Number of initial uniform mesh refinements.
+// Adaptivity threshold.
+const int THRESHOLD = 0.0;	
+const int INIT_REF_NUM = 3;			                  // Number of initial uniform mesh refinements.
 const int P_INIT_X = 2,
           P_INIT_Y = 2,
           P_INIT_Z = 2;                           // Initial polynomial degree of all mesh elements.
@@ -60,6 +63,15 @@ scalar essential_bc_values(int ess_bdy_marker, double x, double y, double z)
 
 #include "forms.cpp"
 
+int criterion(Element* e)
+{
+  std::cout << e->id << std::endl;
+  if(e->id % 3 == 0)
+    return 0;
+else
+  return -1;
+}
+
 int main(int argc, char **args) 
 {
   // Time measurement.
@@ -67,29 +79,50 @@ int main(int argc, char **args)
   cpu_time.tick();
 
   // Load the initial mesh. 
-  Mesh mesh;
+  Mesh mesh1, mesh2;
   H3DReader mesh_loader;
-  mesh_loader.load("hexahedron.mesh3d", &mesh);
+  mesh_loader.load("hexahedron.mesh3d", &mesh1);
+  mesh2.copy(mesh1);
 
   // Perform initial mesh refinement. 
-  for (int i=0; i < INIT_REF_NUM; i++) mesh.refine_all_elements(H3D_H3D_H3D_REFT_HEX_XYZ);
+  for (int i=0; i < INIT_REF_NUM; i++)
+    mesh1.refine_all_elements(H3D_H3D_H3D_REFT_HEX_XYZ);
+  mesh2.refine_all_elements(H3D_H3D_H3D_REFT_HEX_XYZ);
+
+  // Some wild refinements to test multimesh.
+  mesh2.refine_element(2, H3D_H3D_H3D_REFT_HEX_XYZ);
+
+  mesh2.refine_element(11, H3D_H3D_H3D_REFT_HEX_XYZ);
+  mesh2.refine_element(13, H3D_H3D_H3D_REFT_HEX_XYZ);
+
+  mesh2.refine_element(14, H3D_REFT_HEX_X);
+  mesh2.refine_element(15, H3D_H3D_H3D_REFT_HEX_XYZ);
+  mesh2.refine_element(16, H3D_H3D_REFT_HEX_XZ);
+  mesh2.refine_element(31, H3D_H3D_H3D_REFT_HEX_XYZ);
+
+  mesh2.refine_element(43, H3D_H3D_H3D_REFT_HEX_XYZ);
 
   // Create H1 space with default shapeset.
-  H1Space space(&mesh, bc_types, essential_bc_values, Ord3(P_INIT_X, P_INIT_Y, P_INIT_Z));
+  H1Space space1(&mesh1, bc_types, essential_bc_values, Ord3(P_INIT_X, P_INIT_Y, P_INIT_Z));
+  H1Space space2(&mesh2, bc_types, essential_bc_values, Ord3(P_INIT_X, P_INIT_Y, P_INIT_Z));
 
   // Construct initial solution and set it to zero.
-  Solution sln_prev(&mesh);
-  sln_prev.set_zero();
+  Solution sln_prev1(&mesh1);
+  Solution sln_prev2(&mesh2);
+  sln_prev1.set_zero();
+  sln_prev2.set_zero();
 
   // Initialize weak formulation. 
-  WeakForm wf;
+  WeakForm wf(2);
   wf.add_matrix_form(bilinear_form<double, scalar>, bilinear_form<Ord, Ord>, HERMES_SYM);
-  wf.add_vector_form(linear_form<double, scalar>, linear_form<Ord, Ord>, HERMES_ANY, &sln_prev);
+  wf.add_matrix_form(1, 1, bilinear_form<double, scalar>, bilinear_form<Ord, Ord>, HERMES_SYM);
+  wf.add_vector_form(linear_form<double, scalar>, linear_form<Ord, Ord>, HERMES_ANY, &sln_prev1);
+  wf.add_vector_form(1, linear_form<double, scalar>, linear_form<Ord, Ord>, HERMES_ANY, &sln_prev2);
 
   // Initialize discrete problem.
   bool is_linear = true;
-  DiscreteProblem dp(&wf, &space, is_linear);
-
+  Hermes::Tuple<Space *> spaces(&space1, &space2);
+  
   // Set up the solver, matrix, and rhs according to the solver selection.
   SparseMatrix* matrix = create_matrix(matrix_solver);
   Vector* rhs = create_vector(matrix_solver);
@@ -103,40 +136,103 @@ int main(int argc, char **args)
     // Using default iteration parameters (see solver/aztecoo.h).
   }
 
-  // Output mesh with polynomial orders.
-  if (solution_output)
-    out_orders_vtk(&space, "order");
-
   // Time stepping. 
   int nsteps = (int) (FINAL_TIME/TAU + 0.5);
   for (int ts = 0; ts < nsteps;  ts++)
   {
     info("---- Time step %d, time %3.5f.", ts, TIME);
    
-    // Assemble the linear problem.
-    info("Assembling the linear problem (ndof: %d).", Space::get_num_dofs(&space));
+    // Adaptivity loop.
+    int as = 1; 
+    bool done = false;
+    do 
+    {
+      info("------ Adaptivity step %d.", as);
+		  // Assemble the linear problem.
+		  Hermes::Tuple<Space *>* ref_spaces = construct_refined_spaces(spaces,0 , H3D_H3D_H3D_REFT_HEX_XYZ);
 
-    bool rhsonly = (ts > 0);
-    dp.assemble(matrix, rhs, rhsonly);
+			DiscreteProblem dp(&wf, *ref_spaces, is_linear);
 
-    // Solve the linear system. If successful, obtain the solution.
-    info("Solving the linear problem.");
-    Solution sln(space.get_mesh());
-    if(solver->solve()) Solution::vector_to_solution(solver->get_solution(), &space, &sln);
-    else error ("Matrix solver failed.\n");
+			Solution ref_sln1((*ref_spaces)[0]->get_mesh());
+			Solution ref_sln2((*ref_spaces)[1]->get_mesh());
+			Hermes::Tuple<Solution *> ref_slns(&ref_sln1, &ref_sln2);
 
-    // Output solution.
-    if (solution_output)
-      out_fn_vtk(&sln, "sln", ts);
+		  info("Assembling the linear problem (ndof: %d).", Space::get_num_dofs(*ref_spaces));
 
-    // Calculate error wrt. exact solution. 
-    info("Calculating exact error.");
-    ExactSolution esln(&mesh, fndd);
-    double err_exact = h1_error(&sln, &esln) * 100; 
-    info("Err. exact: %g%%.", err_exact);
+		  bool rhsonly = (ts > 0);
+		  dp.assemble(matrix, rhs, rhsonly);
 
-    // Next time step.
-    sln_prev = sln;
+		  // Solve the linear system. If successful, obtain the solution.
+		  info("Solving the linear problem.");
+		  if(solver->solve())
+		  {
+		    Solution::vector_to_solution(solver->get_solution(), (*ref_spaces)[0], &ref_sln1);
+		    Solution::vector_to_solution(solver->get_solution(), (*ref_spaces)[1], &ref_sln2);
+		  }
+		  else
+		    error ("Matrix solver failed.\n");
+
+		  // Output solution.
+		  if (solution_output)
+		  {
+		    out_fn_vtk(&ref_sln1, "sln1", ts);
+		    out_fn_vtk(&ref_sln2, "sln2", ts);
+		  }
+
+		  // Output mesh with polynomial orders.
+		  if (solution_output)
+		  {
+		    out_orders_vtk((*ref_spaces)[0], "order1", ts);
+		    out_orders_vtk((*ref_spaces)[1], "order2", ts);
+		  }
+
+		  // Project the reference solutions on the coarse mesh.
+		  Solution sln1(space1.get_mesh());
+		  Solution sln2(space2.get_mesh());
+		  Hermes::Tuple<Solution *> slns(&sln1, &sln2);
+		  info("Projecting reference solution on coarse mesh.");
+		  OGProjection::project_global(&space1, &ref_sln1, &sln1, matrix_solver);
+		  OGProjection::project_global(&space2, &ref_sln2, &sln2, matrix_solver);
+
+		  // Calculate error wrt. exact solution. 
+		  info("Calculating exact error and error estimate.");
+		  ExactSolution esln1((*ref_spaces)[0]->get_mesh(), fndd);
+		  ExactSolution esln2((*ref_spaces)[1]->get_mesh(), fndd);
+		  double err_exact = (h1_error(&sln1, &esln1) + h1_error(&sln2, &esln2)) * 100; 
+		  info("Err. exact: %g%%.", err_exact);
+
+		  Adapt *adaptivity = new Adapt(spaces, Hermes::Tuple<ProjNormType>(HERMES_H1_NORM, HERMES_H1_NORM));
+		  bool solutions_for_adapt = true;
+		  double err_estimate = adaptivity->calc_err_est(slns, ref_slns, solutions_for_adapt, HERMES_TOTAL_ERROR_ABS);
+		  info("Err. estimate: %g%%.", err_estimate);
+
+		  if (err_exact < THRESHOLD)
+      {
+		    done = true;
+
+				// Next time step.
+				sln_prev1 = ref_sln1;
+				sln_prev2 = ref_sln2;
+      }
+		  else 
+		  {
+		    info("Adapting coarse mesh.");
+		    adaptivity->adapt(THRESHOLD);
+		  }
+
+		  delete (*ref_spaces)[0]->get_mesh();
+		  delete (*ref_spaces)[1]->get_mesh();
+		  delete (*ref_spaces)[0];
+		  delete (*ref_spaces)[1];
+		  delete matrix;
+		  delete rhs;
+		  delete solver;
+		  delete adaptivity;
+
+		  // Increase the counter of performed adaptivity steps.
+		  as++;
+    } 
+    while (!done);
     TIME += TAU;
   }
 
