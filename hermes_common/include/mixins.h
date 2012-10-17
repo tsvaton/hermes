@@ -77,7 +77,7 @@ namespace Hermes
       bool write_console(const char code, const char* text) const;
 
       /// Info about a log record. Used for output log function. \internal
-      class HERMES_API HermesLogEventInfo
+      struct HERMES_API HermesLogEventInfo
       {
       public:
         HermesLogEventInfo(const char code, const char* log_file, const char* src_function, const char* src_file, const int src_line);
