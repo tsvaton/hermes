@@ -92,7 +92,7 @@ namespace Hermes
 
       /// Logging output monitor. \internal \ingroup g_logging
       /** This class protects a logging function __hermes_log_message_if() in multithreded environment. */
-      class LoggerMonitor
+      struct LoggerMonitor
       {
         pthread_mutexattr_t mutex_attr; ///< Mutext attributes.
         pthread_mutex_t mutex; ///< Mutex that protects monitor.
