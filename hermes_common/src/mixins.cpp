@@ -39,7 +39,7 @@ namespace Hermes
       return this->verbose_callback;
     }
 
-    void Loggable::Static::info(const char* msg, ...)
+    void Loggable::static_info(const char* msg, ...)
     {
       char text[BUF_SZ];
       char* text_contents = text + 1;
@@ -93,7 +93,7 @@ namespace Hermes
     #endif
     }
 
-    void Loggable::Static::warn(const char* msg, ...)
+    void Loggable::static_warn(const char* msg, ...)
     {
       char text[BUF_SZ];
       char* text_contents = text + 1;

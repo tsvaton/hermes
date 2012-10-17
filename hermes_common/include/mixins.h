@@ -54,12 +54,9 @@ namespace Hermes
       callbackFn get_verbose_callback() const;
 
       /// For static logging in user programs.
-      class HERMES_API Static
-      {
-      public:
-        static void info(const char* msg, ...);
-        static void warn(const char* msg, ...);
-      };
+      static void static_info(const char* msg, ...);
+      static void static_warn(const char* msg, ...);
+
     protected:
       Loggable(bool verbose_output = false, callbackFn verbose_callback = NULL);
 
