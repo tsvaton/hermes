@@ -123,6 +123,7 @@ endif(DEBUG)
 # find necessary packages
 find_package(JUDY REQUIRED)
 find_package(PTHREAD REQUIRED)
+find_package(CLAPACK REQUIRED)
 include_directories(${JUDY_INCLUDE_DIR})
 add_definitions(-DWITH_BLAS)
 
