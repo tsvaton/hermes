@@ -960,13 +960,18 @@ void VtkOutputEngine::out(Matrix *mat, bool structure)
 
 /// Functions facilitating output in the format displayable by e.g. Paraview.
 // Space (polynomial orders) output.
-void out_orders_vtk(Space *space, const char *name, int iter)
+void out_orders_vtk(Space *space, const char *name, int iter, int iter_2)
 {
   char fname[1024];
   if(iter == -1)
     sprintf(fname, "%s.vtk", name);
   else
-    sprintf(fname, "iter-%s-%d.vtk", name, iter);
+  {
+    if(iter_2 == -1)
+      sprintf(fname, "iter-%s-%d.vtk", name, iter);
+    else
+      sprintf(fname, "iter-%s-%d-%d.vtk", name, iter, iter_2);
+  }
   FILE *f = fopen(fname, "w");
   if (f != NULL) {
     VtkOutputEngine vtk(f);
@@ -978,13 +983,18 @@ void out_orders_vtk(Space *space, const char *name, int iter)
 };
 
 // Solution output for one solution component.
-void out_fn_vtk(MeshFunction *fn, const char *name, int iter)
+void out_fn_vtk(MeshFunction *fn, const char *name, int iter, int iter_2)
 {
   char fname[1024];
   if(iter == -1)
     sprintf(fname, "%s.vtk", name);
   else
-    sprintf(fname, "iter-%s-%d.vtk", name, iter);
+  {
+    if(iter_2 == -1)
+      sprintf(fname, "iter-%s-%d.vtk", name, iter);
+    else
+      sprintf(fname, "iter-%s-%d-%d.vtk", name, iter, iter_2);
+  }
   FILE *f = fopen(fname, "w");
   if (f != NULL) {
     VtkOutputEngine vtk(f);
@@ -995,13 +1005,18 @@ void out_fn_vtk(MeshFunction *fn, const char *name, int iter)
 };
 
 // Solution output for three solution components.
-void out_fn_vtk(MeshFunction *x, MeshFunction *y, MeshFunction *z, const char *name, int iter) 
+void out_fn_vtk(MeshFunction *x, MeshFunction *y, MeshFunction *z, const char *name, int iter, int iter_2) 
 {
   char fname[1024];
   if(iter == -1)
     sprintf(fname, "%s.vtk", name);
   else
-    sprintf(fname, "iter-%s-%d.vtk", name, iter);
+  {
+    if(iter_2 == -1)
+      sprintf(fname, "iter-%s-%d.vtk", name, iter);
+    else
+      sprintf(fname, "iter-%s-%d-%d.vtk", name, iter, iter_2);
+  }
   FILE *f = fopen(fname, "w");
   if (f != NULL) {
     VtkOutputEngine vtk(f);
@@ -1012,31 +1027,41 @@ void out_fn_vtk(MeshFunction *x, MeshFunction *y, MeshFunction *z, const char *n
 };
 
 // Boundary conditions output.
-void out_bc_vtk(Mesh *mesh, const char *name, int iter)
+void out_bc_vtk(Mesh *mesh, const char *name, int iter, int iter_2)
 {
-  char of_name[1024];
+  char fname[1024];
   FILE *ofile;
   if(iter == -1)
-    sprintf(of_name, "%s.vtk", name);
+    sprintf(fname, "%s.vtk", name);
   else
-    sprintf(of_name, "iter-%s-%d.vtk", name, iter);
-  ofile = fopen(of_name, "w");
+  {
+    if(iter_2 == -1)
+      sprintf(fname, "iter-%s-%d.vtk", name, iter);
+    else
+      sprintf(fname, "iter-%s-%d-%d.vtk", name, iter, iter_2);
+  }
+  ofile = fopen(fname, "w");
   if (ofile != NULL) {
     VtkOutputEngine output(ofile);
     output.out_bc_vtk(mesh, name);
     fclose(ofile);
   }
-  else warning("Can not open '%s' for writing.", of_name);
+  else warning("Can not open '%s' for writing.", fname);
 };
 
 // Mesh output.
-void out_mesh_vtk(Mesh *mesh, const char *name, int iter)
+void out_mesh_vtk(Mesh *mesh, const char *name, int iter, int iter_2)
 {
   char fname[1024];
   if(iter == -1)
     sprintf(fname, "%s.vtk", name);
   else
-    sprintf(fname, "iter-%s-%d.vtk", name, iter);
+  {
+    if(iter_2 == -1)
+      sprintf(fname, "iter-%s-%d.vtk", name, iter);
+    else
+      sprintf(fname, "iter-%s-%d-%d.vtk", name, iter, iter_2);
+  }
   FILE *f = fopen(fname, "w");
   if (f != NULL) {
     VtkOutputEngine vtk(f);

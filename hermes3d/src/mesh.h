@@ -352,7 +352,6 @@ public:
 	// for debugging
 	virtual void dump();
 
-protected:
 	unsigned int vtcs[NUM_VERTICES];					// array of vertex indices that build up the hexahedron
 	int sons[NUM_SONS];						// indices of son elements
 

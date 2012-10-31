@@ -147,6 +147,53 @@ void Space::init_data_tables() {
 	}
 }
 
+void Space::unrefine_all_mesh_elements()
+{
+  // find inactive elements with active sons
+  std::vector<int> list;
+  Element* e;
+  unsigned int idx;
+  FOR_ALL_INACTIVE_ELEMENTS(idx, this->mesh)
+  {
+    e = this->mesh->elements[idx];
+    bool found = true;
+    for (unsigned int i = 0; i < e->get_num_sons(); i++)
+    {
+      Element* son = this->mesh->elements[e->get_son(i)];
+      if(son != NULL && !son->active)
+      {
+        found = false;
+        break;
+      }
+    }
+    if(found)
+      list.push_back(e->id);
+  }
+
+  // unrefine the found elements
+  for (unsigned int i = 0; i < list.size(); i++)
+  {
+    unsigned int h_order = 0, v_order = 0, z_order = 0;
+    unsigned int num_sons = this->mesh->elements[list[i]]->get_num_sons();
+    for (unsigned int son_i = 0; son_i < num_sons; son_i++)
+    {
+      h_order += this->elm_data[this->mesh->elements[list[i]]->get_son(son_i)]->order.x;
+      v_order += this->elm_data[this->mesh->elements[list[i]]->get_son(son_i)]->order.x;
+      z_order += this->elm_data[this->mesh->elements[list[i]]->get_son(son_i)]->order.x;
+    }
+
+    h_order = (unsigned int)(h_order / num_sons);
+    v_order = (unsigned int)(v_order / num_sons);
+    z_order = (unsigned int)(z_order / num_sons);
+
+    this->set_element_order(list[i], Ord3(h_order, v_order, z_order));
+
+    const_cast<Mesh*>(this->mesh)->unrefine_element(list[i]);
+  }
+
+  this->assign_dofs();
+}
+
 void Space::free_data_tables() {
 	_F_
 	FOR_ALL_VERTEX_NODES(i)

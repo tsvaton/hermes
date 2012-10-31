@@ -58,14 +58,14 @@ protected:
 
 /// Functions facilitating output in the format displayable by e.g. Paraview.
 // Space (polynomial orders) output.
-void HERMES_API out_orders_vtk(Space *space, const char *name, int iter = -1);
+void HERMES_API out_orders_vtk(Space *space, const char *name, int iter = -1, int iter_2 = -1);
 // Solution output for one solution component.
-void HERMES_API out_fn_vtk(MeshFunction *fn, const char *name, int iter = -1);
+void HERMES_API out_fn_vtk(MeshFunction *fn, const char *name, int iter = -1, int iter_2 = -1);
 // Solution output for three solution components.
-void HERMES_API out_fn_vtk(MeshFunction *x, MeshFunction *y, MeshFunction *z, const char *name, int iter = -1);
+void HERMES_API out_fn_vtk(MeshFunction *x, MeshFunction *y, MeshFunction *z, const char *name, int iter = -1, int iter_2 = -1);
 // Boundary conditions output.
-void HERMES_API out_bc_vtk(Mesh *mesh, const char *name, int iter = -1);
+void HERMES_API out_bc_vtk(Mesh *mesh, const char *name, int iter = -1, int iter_2 = -1);
 // Mesh output.
-void HERMES_API out_mesh_vtk(Mesh *mesh, const char *name, int iter = -1);
+void HERMES_API out_mesh_vtk(Mesh *mesh, const char *name, int iter = -1, int iter_2 = -1);
 
 #endif

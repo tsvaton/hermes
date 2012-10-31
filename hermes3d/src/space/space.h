@@ -78,6 +78,7 @@ public:
 
   ESpaceType get_type() { return type; }
 
+  void unrefine_all_mesh_elements();
   void set_bc_types(BCType (*bc_type_callback)(int marker));
   void set_bc_types_init(BCType (*bc_type_callback)(int marker));
   void set_essential_bc_values(scalar (*bc_value_callback_by_coord)(int ess_bdy_marker, double x, double y, double z));

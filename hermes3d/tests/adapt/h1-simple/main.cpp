@@ -87,19 +87,14 @@ int main(int argc, char **args)
   // Test variable.
   int success_test = 1;
 
-	if (argc < 5) error("Not enough parameters.");
-
   // Load the mesh.
 	Mesh mesh;
 	H3DReader mloader;
-	if (!mloader.load(args[1], &mesh)) error("Loading mesh file '%s'.", args[1]);
+	!mloader.load("hex1.mesh3d", &mesh);
   
   // Initialize the space according to the
   // command-line parameters passed.
-  sscanf(args[2], "%d", &P_INIT_X);
-	sscanf(args[3], "%d", &P_INIT_Y);
-	sscanf(args[4], "%d", &P_INIT_Z);
-	Ord3 order(P_INIT_X, P_INIT_Y, P_INIT_Z);
+	Ord3 order(2, 2, 2);
   H1Space space(&mesh, bc_types, essential_bc_values, order);
 
   // Initialize the weak formulation.

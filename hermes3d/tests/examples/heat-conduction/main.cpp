@@ -6,24 +6,21 @@
 
 // This test makes sure that the example heat-conduction works correctly.
 
-const int INIT_REF_NUM = 2;                       // Number of initial uniform mesh refinements.
-const int P_INIT_X = 2,
-          P_INIT_Y = 2,
-          P_INIT_Z = 2;                           // Initial polynomial degree of all mesh elements.
-const double TAU = 0.05;                          // Time step in seconds. 
-bool solution_output = true;                      // Generate output files (if true).
-MatrixSolverType matrix_solver = SOLVER_UMFPACK;  // Possibilities: SOLVER_AMESOS, SOLVER_MUMPS, 
-                                                  // SOLVER_PARDISO, SOLVER_PETSC, SOLVER_UMFPACK.
-const char* iterative_method = "bicgstab";        // Name of the iterative method employed by AztecOO (ignored
-                                                  // by the other solvers). 
-                                                  // Possibilities: gmres, cg, cgs, tfqmr, bicgstab.
-const char* preconditioner = "jacobi";            // Name of the preconditioner employed by AztecOO (ignored by
-                                                  // the other solvers). 
-                                                  // Possibilities: none, jacobi, neumann, least-squares, or a
-                                                  // preconditioner from IFPACK (see solver/aztecoo.h)                                                  
+const int INIT_REF_NUM = 1;                         // Number of initial uniform mesh refinements.
+const int P_INIT_X = 2, P_INIT_Y = 2, P_INIT_Z = 2; // Initial polynomial degree of all mesh elements.
+const double TAU = 0.05;                            // Time step in seconds. 
+MatrixSolverType matrix_solver = SOLVER_UMFPACK;    // Possibilities: SOLVER_AMESOS, SOLVER_MUMPS, SOLVER_PARDISO, SOLVER_PETSC, SOLVER_UMFPACK.
+const double ERR_STOP = 5.0;                        // Stopping criterion for adaptivity (rel. error tolerance between the
+// fine mesh and coarse mesh solution in percent).
+const int NDOF_STOP = 100000;                       // Adaptivity process stops when the number of degrees of freedom grows
+// over this limit. This is to prevent h-adaptivity to go on forever.
+const double THRESHOLD = 0.5;		                    // error threshold for element refinement
+
+unsigned int DEREFINEMENT_DONE_EVERY_N_STEPS = 1;		// derefinement performed every N steps.
+bool SPACE_ADAPTED_SINCE_LAST_DEREF = false;		    // If there was no adaptation since last derefinement, we do not derefine.
 
 // Problem parameters. 
-const double FINAL_TIME = 2 * M_PI;		            // Length of time interval in seconds. 
+const double FINAL_TIME = 2 * M_PI;		              // Length of time interval in seconds. 
 
 // Global time variable. 
 double TIME = TAU;
@@ -55,7 +52,8 @@ int main(int argc, char **args)
   mesh_loader.load("hexahedron.mesh3d", &mesh);
 
   // Perform initial mesh refinement. 
-  for (int i=0; i < INIT_REF_NUM; i++) mesh.refine_all_elements(H3D_H3D_H3D_REFT_HEX_XYZ);
+  for (int i=0; i < INIT_REF_NUM; i++) 
+    mesh.refine_all_elements(H3D_H3D_H3D_REFT_HEX_XYZ);
 
   // Create H1 space with default shapeset.
   H1Space space(&mesh, bc_types, essential_bc_values, Ord3(P_INIT_X, P_INIT_Y, P_INIT_Z));
@@ -69,82 +67,113 @@ int main(int argc, char **args)
   wf.add_matrix_form(bilinear_form<double, scalar>, bilinear_form<Ord, Ord>, HERMES_SYM);
   wf.add_vector_form(linear_form<double, scalar>, linear_form<Ord, Ord>, HERMES_ANY, &sln_prev);
 
-  // Initialize discrete problem.
-  bool is_linear = true;
-  DiscreteProblem dp(&wf, &space, is_linear);
-
   // Set up the solver, matrix, and rhs according to the solver selection.
   SparseMatrix* matrix = create_matrix(matrix_solver);
   Vector* rhs = create_vector(matrix_solver);
   Solver* solver = create_linear_solver(matrix_solver, matrix, rhs);
 
-  // Initialize the preconditioner in the case of SOLVER_AZTECOO.
-  if (matrix_solver == SOLVER_AZTECOO) 
-  {
-    ((AztecOOSolver*) solver)->set_solver(iterative_method);
-    ((AztecOOSolver*) solver)->set_precond(preconditioner);
-    // Using default iteration parameters (see solver/aztecoo.h).
-  }
+  // Error estimate and exact error.
+  double err_est, err_exact;
 
-  // Exact error for testing purposes.
-  double err_exact;
+  // Solutions
+  Solution sln(space.get_mesh());
 
   // Time stepping. 
   int nsteps = (int) (FINAL_TIME/TAU + 0.5);
   for (int ts = 0; ts < nsteps;  ts++)
   {
+    // Global derefinement.
+    if(SPACE_ADAPTED_SINCE_LAST_DEREF && ts % DEREFINEMENT_DONE_EVERY_N_STEPS == 0)
+    {
+      info("Global space derefinement.");
+      SPACE_ADAPTED_SINCE_LAST_DEREF = false;
+      space.unrefine_all_mesh_elements();
+    }
+
     info("---- Time step %d, time %3.5f.", ts, TIME);
-   
-    // Assemble the linear problem.
-    info("Assembling the linear problem (ndof: %d).", Space::get_num_dofs(&space));
 
-    bool rhsonly = (ts > 0);
-    dp.assemble(matrix, rhs, rhsonly);
+    // Adaptivity loop.
+    int as = 1; 
+    bool done = false;
+    do 
+    {
+      info("---- Adaptivity step %d:", as);
+      Space* ref_space = construct_refined_space(&space,1 , H3D_H3D_H3D_REFT_HEX_XYZ);
 
-    // Solve the linear system. If successful, obtain the solution.
-    info("Solving the linear problem.");
-    Solution sln(space.get_mesh());
-    if(solver->solve()) Solution::vector_to_solution(solver->get_solution(), &space, &sln);
-    else error ("Matrix solver failed.\n");
+      // Initialize discrete problem.
+      bool is_linear = true;
+      DiscreteProblem dp(&wf, ref_space, is_linear);
 
-    // Output solution.
-    if (solution_output)
-      out_fn_vtk(&sln, "sln", ts);
+      // Assemble the linear problem.
+      info("Assembling the linear problem (ndof: %d).", Space::get_num_dofs(ref_space));
 
+      dp.assemble(matrix, rhs);
+      Solution rsln(ref_space->get_mesh());
 
-    // Calculate exact error.
-    ExactSolution esln(&mesh, fndd);
+      // Solve the linear system. If successful, obtain the solution.
+      info("Solving the linear problem.");
+      if(solver->solve()) 
+        Solution::vector_to_solution(solver->get_solution(), ref_space, &rsln);
+      else 
+        error ("Matrix solver failed.\n");
 
-    info("Calculating exact error.");
-    Adapt *adaptivity = new Adapt(&space, HERMES_H1_NORM);
-    bool solutions_for_adapt = false;
-    err_exact = adaptivity->calc_err_exact(&sln, &esln, solutions_for_adapt, HERMES_TOTAL_ERROR_ABS) * 100;
-    info("Err. exact: %g%%.", err_exact);
+      info("Project onto the coarse space.");
+      OGProjection::project_global(&space, &rsln, &sln);
+
+      // Output solution.
+        out_fn_vtk(&rsln, "sln", ts);
+
+      // Exact solution.
+      ExactSolution esln(ref_space->get_mesh(), fndd);
+  
+      info("Calculating error estimate and the exact error.");
+      Adapt *adaptivity = new Adapt(&space, HERMES_H1_NORM);
+      bool solutions_for_adapt = false;
+      err_exact = adaptivity->calc_err_exact(&sln, &esln, solutions_for_adapt, HERMES_TOTAL_ERROR_REL) * 100;
+      solutions_for_adapt = true;
+      err_est = adaptivity->calc_err_est(&sln, &rsln, solutions_for_adapt, HERMES_TOTAL_ERROR_REL) * 100;
+      info("Err. est: %g%%.", err_est);
+      info("(Probably wrong) Err. exact: %g%%.", err_exact);
+
+      // Output.
+      out_mesh_vtk(ref_space->get_mesh(), "Mesh-fine", ts, as);
+      out_orders_vtk(ref_space, "Space-fine", ts, as);
+      out_fn_vtk(&rsln, "Solution-fine-vector", ts, as);
+
+      // If err_est_rel is too large, adapt the mesh. 
+      if (err_est < ERR_STOP) 
+      {
+        done = true;
+      }	
+      else 
+      {
+        info("Adapting coarse mesh.");
+        adaptivity->adapt(THRESHOLD);
+        SPACE_ADAPTED_SINCE_LAST_DEREF = true;
+      }
+
+      // If we reached the maximum allowed number of degrees of freedom, set the return flag to failure.
+      if (Space::get_num_dofs(&space) >= NDOF_STOP)
+        done = true;
+
+      // Cleanup.
+      delete ref_space;
+      delete adaptivity;
+
+      // Increase the counter of performed adaptivity steps.
+      as++;
+    } 
+    while (!done);
 
     // Next time step.
     sln_prev = sln;
     TIME += TAU;
-
-    // Cleanup.
-    delete adaptivity;
   }
-
-  if(err_exact > 3.00)
-    success_test = 0;
 
   // Clean up.
   delete matrix;
   delete rhs;
   delete solver;
-
-  if (success_test) {
-    info("Success!");
-    return ERR_SUCCESS;
-  }
-  else {
-    info("Failure!");
-    return ERR_FAILURE;
-  }
 
   return 0;
 }
