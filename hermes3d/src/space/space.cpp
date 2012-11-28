@@ -147,27 +147,34 @@ void Space::init_data_tables() {
 	}
 }
 
-void Space::unrefine_all_mesh_elements()
+void Space::unrefine_all_mesh_elements(int polynomial_degree_decrease, int minimum_degree)
 {
   // find inactive elements with active sons
   std::vector<int> list;
   Element* e;
   unsigned int idx;
-  FOR_ALL_INACTIVE_ELEMENTS(idx, this->mesh)
+  for (unsigned int (idx) = (mesh)->elements.first(), _max = (mesh)->elements.count(); (idx) <= _max; (idx) = (mesh)->elements.next((idx)))
   {
-    e = this->mesh->elements[idx];
-    bool found = true;
-    for (unsigned int i = 0; i < e->get_num_sons(); i++)
+    e = mesh->elements[idx];
+
+    if (e->used)
     {
-      Element* son = this->mesh->elements[e->get_son(i)];
-      if(son != NULL && !son->active)
+      if (!e->active)
       {
-        found = false;
-        break;
+        bool found = true;
+        for (unsigned int i = 0; i < e->get_num_sons(); i++)
+        {
+          Element* son = this->mesh->elements[e->get_son(i)];
+          if(son != NULL && !son->active)
+          {
+            found = false;
+            break;
+          }
+        }
+        if(found)
+          list.push_back(e->id);
       }
     }
-    if(found)
-      list.push_back(e->id);
   }
 
   // unrefine the found elements
@@ -189,6 +196,29 @@ void Space::unrefine_all_mesh_elements()
     this->set_element_order(list[i], Ord3(h_order, v_order, z_order));
 
     const_cast<Mesh*>(this->mesh)->unrefine_element(list[i]);
+  }
+
+  for (unsigned int (idx) = (mesh)->elements.first(), _max = (mesh)->elements.count(); (idx) <= _max; (idx) = (mesh)->elements.next((idx)))
+  {
+    e = mesh->elements[idx];
+
+    if (e->used)
+    {
+      if (e->active)
+      {
+        Ord3 order_to_set;
+        order_to_set.x = this->get_element_order(idx).x;
+        if(order_to_set.x > minimum_degree)
+          order_to_set.x -= polynomial_degree_decrease;
+        order_to_set.y = this->get_element_order(idx).y;
+        if(order_to_set.y > minimum_degree)
+          order_to_set.y -= polynomial_degree_decrease;
+        order_to_set.z = this->get_element_order(idx).z;
+        if(order_to_set.z > minimum_degree)
+          order_to_set.z -= polynomial_degree_decrease;
+        this->set_element_order(idx, order_to_set);
+      }
+    }
   }
 
   this->assign_dofs();

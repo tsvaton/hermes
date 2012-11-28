@@ -88,7 +88,7 @@ int main(int argc, char **args)
     if(ts > 0)
     {
       info("Global space derefinement.");
-      space.unrefine_all_mesh_elements();
+      space.unrefine_all_mesh_elements(1, 2);
     }
 
     info("---- Time step %d, time %3.5f.", ts, TIME);
