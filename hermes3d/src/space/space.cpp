@@ -206,16 +206,17 @@ void Space::unrefine_all_mesh_elements(int polynomial_degree_decrease, int minim
     {
       if (e->active)
       {
-        Ord3 order_to_set;
-        order_to_set.x = this->get_element_order(idx).x;
-        if(order_to_set.x > minimum_degree)
-          order_to_set.x -= polynomial_degree_decrease;
-        order_to_set.y = this->get_element_order(idx).y;
-        if(order_to_set.y > minimum_degree)
-          order_to_set.y -= polynomial_degree_decrease;
-        order_to_set.z = this->get_element_order(idx).z;
-        if(order_to_set.z > minimum_degree)
-          order_to_set.z -= polynomial_degree_decrease;
+        int x_order, y_order, z_order;
+        x_order = this->get_element_order(idx).x;
+        if(x_order > minimum_degree)
+          x_order -= polynomial_degree_decrease;
+        y_order = this->get_element_order(idx).y;
+        if(y_order > minimum_degree)
+          y_order -= polynomial_degree_decrease;
+        z_order = this->get_element_order(idx).z;
+        if(z_order > minimum_degree)
+          z_order -= polynomial_degree_decrease;
+        Ord3 order_to_set(x_order, y_order, z_order);
         this->set_element_order(idx, order_to_set);
       }
     }
