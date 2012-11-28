@@ -6,21 +6,21 @@
 
 // This test makes sure that the example heat-conduction works correctly.
 
-const int INIT_REF_NUM = 1;                         // Number of initial uniform mesh refinements.
+const int INIT_REF_NUM = 0;                         // Number of initial uniform mesh refinements.
 const int P_INIT_X = 2, P_INIT_Y = 2, P_INIT_Z = 2; // Initial polynomial degree of all mesh elements.
 const double TAU = 0.05;                            // Time step in seconds. 
 MatrixSolverType matrix_solver = SOLVER_UMFPACK;    // Possibilities: SOLVER_AMESOS, SOLVER_MUMPS, SOLVER_PARDISO, SOLVER_PETSC, SOLVER_UMFPACK.
-const double ERR_STOP = 5.0;                        // Stopping criterion for adaptivity (rel. error tolerance between the
+const double ERR_STOP = 2.0;                        // Stopping criterion for adaptivity (rel. error tolerance between the
 // fine mesh and coarse mesh solution in percent).
 const int NDOF_STOP = 100000;                       // Adaptivity process stops when the number of degrees of freedom grows
 // over this limit. This is to prevent h-adaptivity to go on forever.
-const double THRESHOLD = 0.5;		                    // error threshold for element refinement
+const double THRESHOLD = 0.9;		                    // error threshold for element refinement
 
 unsigned int DEREFINEMENT_DONE_EVERY_N_STEPS = 1;		// derefinement performed every N steps.
 bool SPACE_ADAPTED_SINCE_LAST_DEREF = false;		    // If there was no adaptation since last derefinement, we do not derefine.
 
 // Problem parameters. 
-const double FINAL_TIME = 2 * M_PI;		              // Length of time interval in seconds. 
+const double FINAL_TIME = 100*TAU;		              // Length of time interval in seconds. 
 
 // Global time variable. 
 double TIME = TAU;
@@ -30,13 +30,15 @@ double TIME = TAU;
 
 // Boundary condition types.
 BCType bc_types(int marker) {
+  if(marker == 1)
+    return BC_NATURAL;
   return BC_ESSENTIAL;
 }
 
 // Essential (Dirichlet) boundary condition values. 
 scalar essential_bc_values(int ess_bdy_marker, double x, double y, double z)
 {
-  return 0;
+  return (TIME-TAU)*x*y*z/10;
 }
 
 #include "forms.cpp"
@@ -83,10 +85,9 @@ int main(int argc, char **args)
   for (int ts = 0; ts < nsteps;  ts++)
   {
     // Global derefinement.
-    if(SPACE_ADAPTED_SINCE_LAST_DEREF && ts % DEREFINEMENT_DONE_EVERY_N_STEPS == 0)
+    if(ts > 0)
     {
       info("Global space derefinement.");
-      SPACE_ADAPTED_SINCE_LAST_DEREF = false;
       space.unrefine_all_mesh_elements();
     }
 
@@ -136,9 +137,9 @@ int main(int argc, char **args)
       info("(Probably wrong) Err. exact: %g%%.", err_exact);
 
       // Output.
-      out_mesh_vtk(ref_space->get_mesh(), "Mesh-fine", ts, as);
-      out_orders_vtk(ref_space, "Space-fine", ts, as);
-      out_fn_vtk(&rsln, "Solution-fine-vector", ts, as);
+      out_mesh_vtk(ref_space->get_mesh(), "Mesh-fine", ts*100+as);
+      out_orders_vtk(ref_space, "Space-fine", ts*100+as);
+      out_fn_vtk(&rsln, "Solution-fine-vector", ts*100+as);
 
       // If err_est_rel is too large, adapt the mesh. 
       if (err_est < ERR_STOP) 
@@ -149,7 +150,6 @@ int main(int argc, char **args)
       {
         info("Adapting coarse mesh.");
         adaptivity->adapt(THRESHOLD);
-        SPACE_ADAPTED_SINCE_LAST_DEREF = true;
       }
 
       // If we reached the maximum allowed number of degrees of freedom, set the return flag to failure.
