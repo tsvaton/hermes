@@ -15,16 +15,11 @@ project(hermes)
     # Optional stacktrace
     set(WITH_STACKTRACE NO)
   
-  # HermesCommon
-    set(HERMES_COMMON_DEBUG     YES)
-    set(HERMES_COMMON_RELEASE   YES)
+  # Debug or release.
+    set(DEBUG     YES)
 
   # Hermes2D:
   set(WITH_H2D                  YES)
-    # Release and debug versions.
-    set(H2D_DEBUG               YES)
-    set(H2D_RELEASE             YES)
-	
     # Optional parts of the library.
     set(H2D_WITH_GLUT           YES)
     set(H2D_WITH_TEST_EXAMPLES  YES)
@@ -116,29 +111,28 @@ project(hermes)
 	# Allow to override the default values in CMake.vars:
 	include(CMake.vars OPTIONAL)
   
-  ### END DEFAULT CONFIGURATION ###
-    
-  set(CMAKE_MODULE_PATH ${CMAKE_HOME_DIRECTORY}/cmake)
-  set(HERMES_COMMON_DIR ${PROJECT_SOURCE_DIR})
-  set(HERMES_COMMON_LIB  hermes_common)
-  
-  if(${H2D_MAX_HANGING_NODES_LEVEL} MATCHES "[1-20]")
-  else(${H2D_MAX_HANGING_NODES_LEVEL} MATCHES "[1-20]")
-	message(FATAL_ERROR "H2D_MAX_HANGING_NODES_LEVEL has to be a number smaller than 21.")
-  endif(${H2D_MAX_HANGING_NODES_LEVEL} MATCHES "[1-20]")
-  
-  if(${H2D_MAX_COMPONENTS} MATCHES "[1-999]")
-  else(${H2D_MAX_COMPONENTS} MATCHES "[1-999]")
-	message(FATAL_ERROR "H2D_MAX_COMPONENTS has to be a number between 1 and 999.")
-  endif(${H2D_MAX_COMPONENTS} MATCHES "[1-999]")
-  
-  if(${H2D_MAX_QUADRATURES} MATCHES "[1-999]")
-  else(${H2D_MAX_QUADRATURES} MATCHES "[1-999]")
-	message(FATAL_ERROR "H2D_MAX_QUADRATURES has to be a number between 1 and 999.")
-  endif(${H2D_MAX_QUADRATURES} MATCHES "[1-999]")
-  
-  #ADDED BY COLMAN
-  IF (APPLE)
+	  ### END DEFAULT CONFIGURATION ###
+		
+	  set(CMAKE_MODULE_PATH ${CMAKE_HOME_DIRECTORY}/cmake)
+	  set(HERMES_COMMON_DIR ${PROJECT_SOURCE_DIR})
+	  
+	  if(${H2D_MAX_HANGING_NODES_LEVEL} MATCHES "[1-20]")
+	  else(${H2D_MAX_HANGING_NODES_LEVEL} MATCHES "[1-20]")
+		message(FATAL_ERROR "H2D_MAX_HANGING_NODES_LEVEL has to be a number smaller than 21.")
+	  endif(${H2D_MAX_HANGING_NODES_LEVEL} MATCHES "[1-20]")
+	  
+	  if(${H2D_MAX_COMPONENTS} MATCHES "[1-999]")
+	  else(${H2D_MAX_COMPONENTS} MATCHES "[1-999]")
+		message(FATAL_ERROR "H2D_MAX_COMPONENTS has to be a number between 1 and 999.")
+	  endif(${H2D_MAX_COMPONENTS} MATCHES "[1-999]")
+	  
+	  if(${H2D_MAX_QUADRATURES} MATCHES "[1-999]")
+	  else(${H2D_MAX_QUADRATURES} MATCHES "[1-999]")
+		message(FATAL_ERROR "H2D_MAX_QUADRATURES has to be a number between 1 and 999.")
+	  endif(${H2D_MAX_QUADRATURES} MATCHES "[1-999]")
+	  
+	  #ADDED BY COLMAN
+	  IF (APPLE)
     IF (NOT CMAKE_SYSTEM_PROCESSOR MATCHES powerpc)
       IF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         ## It's Mac OS X.
@@ -201,29 +195,6 @@ project(hermes)
   
   MESSAGE(STATUS "Hermes will by default be using ${NUM_THREADS} threads for calculation.")
 
-  macro (DETERMINE_HERMES_COMMON_RELEASE_DEBUG HXD)
-    if (WITH_${HXD})
-      if(MSVC)
-        # In MSVC, Release/Debug is distinguished in a special way
-        # (see hermes_common/cmake/BuildAndInstallScripts.cmake)
-        set(HERMES_COMMON_DEBUG YES)
-        set(HERMES_COMMON_LIB_DEBUG ${HERMES_COMMON_LIB}-debug)
-        set(HERMES_COMMON_RELEASE YES)
-        set(HERMES_COMMON_LIB_RELEASE ${HERMES_COMMON_LIB})
-      else(MSVC)
-        if(${HXD}_DEBUG)
-          set(HERMES_COMMON_DEBUG YES)
-          set(HERMES_COMMON_LIB_DEBUG  ${HERMES_COMMON_LIB}-debug)
-        endif(${HXD}_DEBUG)
-
-        if(${HXD}_RELEASE)
-          set(HERMES_COMMON_RELEASE YES)
-          set(HERMES_COMMON_LIB_RELEASE ${HERMES_COMMON_LIB})
-        endif(${HXD}_RELEASE)
-      endif(MSVC)
-    endif (WITH_${HXD})
-  endmacro(DETERMINE_HERMES_COMMON_RELEASE_DEBUG)
-
   # Enable debugging symbols for all files all the time:
   # set(CMAKE_CXX_FLAGS "-g ${CMAKE_CXX_FLAGS}")
 
@@ -235,11 +206,11 @@ project(hermes)
     set(RELEASE_FLAGS "-DNDEBUG -O3")
     set(FLAGS ${RELEASE_FLAGS})
     set(DEBUG_FLAGS   "-g")
-    if(H2D_DEBUG)
+    if(DEBUG)
       set(FLAGS ${DEBUG_FLAGS})
-    endif(H2D_DEBUG)
+    endif(DEBUG)
   endif()
-
+  
   # Enabling multiprocessor build on MSVC
   if(MSVC)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /openmp")
@@ -386,18 +357,66 @@ project(hermes)
       ENDIF(MSVC)
     ENDIF(WITH_STACKTRACE)
 
-  # Match debug or release version of all other libraries.
-  DETERMINE_HERMES_COMMON_RELEASE_DEBUG(H2D)
-  
   if(NOT H2D_WITH_GLUT)
     set(NOGLUT  YES)
   endif(NOT H2D_WITH_GLUT)
 
-  # Main CMakeLists.txt for each library are in the following directories.
-  add_subdirectory(hermes_common)
+  # Create file with preprocessor definitions exposing the build settings to the source code.
+  configure_file(
+    config.h.cmake
+    include/config.h
+  )
+  
+  # Add a target for a specified version of the Hermes library (REAL/COMPLEX, RELEASE/DEBUG),
+  # and set its build properties (compile and link flags, installation directories).
+  macro(BUILD_LIB LIBRARY BUILD_FLAGS)
+    add_library(${LIBRARY} SHARED ${SRC} ${HEADERS})
+    set_target_properties(${LIBRARY} PROPERTIES COMPILE_FLAGS ${BUILD_FLAGS})
+
+    # Link with all third party libraries corresponding to selected configuration
+    # options. Linking of optional libraries for the different Hermeses ({1, 2, 3}D)
+    # is controled in their respective CMakeLists.txt. Note that for unselected
+    # TPL's, the respective variables will be empty.
+
+    target_link_libraries(${LIBRARY}
+      ${EXODUSII_LIBRARIES}
+      ${HDF5_LIBRARY}
+      ${METIS_LIBRARY}
+      ${UMFPACK_LIBRARIES}
+      ${TRILINOS_LIBRARIES}
+      ${PETSC_LIBRARIES}
+      ${MUMPS_LIBRARIES}
+      ${SUPERLU_LIBRARY}
+      ${LAPACK_LIBRARIES}
+      ${STACK_WALKER_LIBRARY}
+      ${PTHREAD_LIBRARY} ${MPI_LIBRARIES} ${SCALAPACK_LIBRARIES}
+      ${CLAPACK_LIBRARY} ${BLAS_LIBRARY} ${F2C_LIBRARY}
+      ${ADDITIONAL_LIBS}
+    )
+
+    if(NOT MSVC)
+      IF(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        target_link_libraries(${LIBRARY} "rt")
+      ENDIF(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    endif(NOT MSVC)
+  endmacro(BUILD_LIB)
+  
+  include_directories(include)
+  
+  add_subdirectory(src/algebra)
+  add_subdirectory(src/base)
+  add_subdirectory(src/util)
     
   if(WITH_H2D)
-    add_subdirectory(hermes2d)
+    set(HERMES2D "hermes2d")              # Base name of the library.
+    
+    add_subdirectory(src/2d)
+
+    IF(EXISTS "2d/test_examples")
+      if(H2D_WITH_TEST_EXAMPLES)
+        add_subdirectory(2d/test_examples)
+      endif(H2D_WITH_TEST_EXAMPLES)
+    ENDIF(EXISTS "2d/test_examples")
   endif(WITH_H2D)
 
 
@@ -416,16 +435,12 @@ project(hermes)
   message("Build with EXODUSII: ${WITH_EXODUSII}")
   
   message("---------------------")
-  message("Hermes common library:")
-  message("\tBuild Debug version: ${HERMES_COMMON_DEBUG}")
-  message("\tBuild Release version: ${HERMES_COMMON_RELEASE}")
+  message("General info:")
+  message("\tBuild Debug version: ${DEBUG}")
   message("\tBuild with tests: ${HERMES_COMMON_WITH_TESTS}")
 
   message("Build Hermes2D: ${WITH_H2D}")
   if(WITH_H2D)
-    message("\tBuild Hermes2D Debug version: ${H2D_DEBUG}")
-    message("\tBuild Hermes2D Release version: ${H2D_RELEASE}")
-  message("---------------------")
     message("\tBuild Hermes2D with test examples: ${H2D_WITH_TEST_EXAMPLES}")
   message("---------------------")
     message("\tBuild Hermes2D with GLUT: ${H2D_WITH_GLUT}")
