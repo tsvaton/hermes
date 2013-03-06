@@ -58,11 +58,17 @@ namespace Hermes
       this->nonlinear = true;
       this->add_dirichlet_lift = false;
 
+<<<<<<< HEAD
       // Local number of threads - to avoid calling it over and over again, and against faults caused by the
       // value being changed while assembling.
       this->threadAssembler = new DiscreteProblemThreadAssembler<Scalar>*[this->num_threads_used];
       for (int i = 0; i < this->num_threads_used; i++)
         this->threadAssembler[i] = new DiscreteProblemThreadAssembler<Scalar>(&this->selectiveAssembler);
+=======
+      this->spaces_size = 0;
+
+      this->is_linear = false;
+>>>>>>> Add this->spaces_size = 0 to DP constructor.
     }
 
     template<typename Scalar>
