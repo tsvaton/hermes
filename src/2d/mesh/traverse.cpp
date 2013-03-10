@@ -365,6 +365,8 @@ namespace Hermes
           if(count > predictedCount - 1)
             states = (State**)realloc(states, sizeof(State*)*predictedCount);
 
+          set_boundary_info(s);
+
           states[count++] = State::clone(s);
           continue;
         }
