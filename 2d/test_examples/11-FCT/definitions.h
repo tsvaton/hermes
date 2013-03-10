@@ -1,7 +1,7 @@
 #ifndef __DEFINITIONS_H
 #define __DEFINITIONS_H
 
-#include "hermes2d.h"
+#include "2d/hermes2d.h"
  #define PI (3.141592653589793) 
 
 using namespace Hermes;

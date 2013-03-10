@@ -1,4 +1,4 @@
-#include "hermes2d.h"
+#include "2d/hermes2d.h"
 
 /* Weak forms */
 using namespace Hermes;

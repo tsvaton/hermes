@@ -1,6 +1,6 @@
 #ifndef __HP_ADAPT_H
 #define __HP_ADAPT_H
-#include "hermes2d.h"
+#include "2d/hermes2d.h"
 
 
 using namespace Hermes;

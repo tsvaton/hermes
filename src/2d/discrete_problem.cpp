@@ -1094,7 +1094,8 @@ namespace Hermes
         meshes.push_back(spaces[space_i]->get_mesh());
 
       Traverse trav_master(true);
-      unsigned int num_states = trav_master.get_num_states(meshes);
+      int num_states;
+      trav_master.get_states(meshes, num_states);
 
       trav_master.begin(meshes.size(), &(meshes.front()));
 

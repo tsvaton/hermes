@@ -1,7 +1,7 @@
 #ifndef __LOWORDER_H
 #define __LOWORDER_H
 
-#include "hermes2d.h"
+#include "2d/hermes2d.h"
 
 
 class Low_Order{

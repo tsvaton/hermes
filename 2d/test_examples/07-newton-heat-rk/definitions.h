@@ -1,5 +1,4 @@
-#include "hermes2d.h"
-#include "runge_kutta.h"
+#include "2d/hermes2d.h"
 
 /* Weak forms */
 

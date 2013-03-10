@@ -1,7 +1,7 @@
 #ifndef __FCT_H
 #define __FCT_H
 
-#include "hermes2d.h"
+#include "2d/hermes2d.h"
 #include "lumped_projection.h"
 #include "reg_estimator.h"
 using namespace Hermes;

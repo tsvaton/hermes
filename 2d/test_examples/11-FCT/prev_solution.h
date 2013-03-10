@@ -1,6 +1,6 @@
 #ifndef __PREV_SOLUTION_H
 #define __PREV_SOLUTION_H
-#include "hermes2d.h"
+#include "2d/hermes2d.h"
 using namespace Hermes;
 using namespace Hermes::Hermes2D;
 

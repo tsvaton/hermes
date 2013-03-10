@@ -111,6 +111,8 @@ project(hermes)
 	# Allow to override the default values in CMake.vars:
 	include(CMake.vars OPTIONAL)
   
+  include_directories(include)
+  
 	  ### END DEFAULT CONFIGURATION ###
 		
 	  set(CMAKE_MODULE_PATH ${CMAKE_HOME_DIRECTORY}/cmake)
@@ -401,7 +403,6 @@ project(hermes)
     endif(NOT MSVC)
   endmacro(BUILD_LIB)
   
-  include_directories(include)
   
   add_subdirectory(src/algebra)
   add_subdirectory(src/base)

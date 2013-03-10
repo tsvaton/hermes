@@ -1,7 +1,7 @@
 #ifndef __HIGHORDER_H
 #define __HIGHORDER_H
 
-#include "hermes2d.h"
+#include "2d/hermes2d.h"
 
 class High_Order{
 public:
